@@ -43,6 +43,7 @@ do
 	chatbox:SetBackdropColor(0, 0, 0, 0.45)
 	chatbox:SetFading(false)
 	chatbox:SetResizable(true)
+	chatbox:EnableMouseWheel(true)
 	chatbox:SetMovable(true)
 	chatbox.currentwin = 1
 	chatbox.prevwin = nil
@@ -266,6 +267,8 @@ function proto:Cache()
 	end
 
 	self.id = nil
+
+	chatbox:UpdatePosition()
 end
 
 function proto:ActivateCache()
@@ -280,19 +283,9 @@ function proto:ActivateCache()
 	NameToIndex[self.name] = index
 	self.id = index
 
-	local col = self.title
-
-	col:SetPoint("TOP")
-	if chatbox.windows[index - 1] then
-		col:SetPoint("LEFT", chatbox.windows[index - 1].title, "RIGHT", 1, 0)
-	else
-		col:SetPoint("LEFT", 2, 0)
-	end
-
 	col:Show()
 
 	self.id = index
-	col.text:SetFormattedText("[%d: %s]", index, self.name)
 
 	if not chatbox.currentwin or chatbox.currentwin == self.id then
 		for id, msg in pairs(self.cache) do
@@ -300,7 +293,25 @@ function proto:ActivateCache()
 		end
 	end
 
+	chatbox:UpdatePosition()
+
 	return index
+end
+
+function chatbox:UpdatePosition()
+	for id, win in ipairs(self.windows) do
+		local col = win.title
+		col:ClearAllPoints()
+		col:SetPoint("TOP")
+
+		if chatbox.windows[id - 1] then
+			col:SetPoint("LEFT", chatbox.windows[id - 1].title, "RIGHT", 1, 0)
+		else
+			col:SetPoint("LEFT", 2, 0)
+		end
+
+		col.text:SetFormattedText("[%d: %s]", id, win.name)
+	end
 end
 
 function chatbox:NewWindow(name)
