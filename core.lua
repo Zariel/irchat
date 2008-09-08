@@ -44,6 +44,24 @@ chatbox:SetFading(false)
 chatbox.currentwin = 1
 chatbox.prevwin = nil
 chatbox.cache = {}
+chatbox:SetResizable(true)
+chatbox:SetMovable(true)
+
+local scale = CreateFrame("Button", nil, chatbox)
+scale:SetNormalTexture([[Interface\AddOns\IRchat\texture\rescale.tga]])
+scale:SetPoint("BOTTOMRIGHT", -1, -1)
+scale:SetHeight(16)
+scale:SetWidth(16)
+scale:EnableMouse()
+scale:SetAlpha(0.4)
+scale:SetScript("OnMouseUp", function(self)
+	chatbox:StopMovingOrSizing()
+end)
+scale:SetScript("OnMouseDown", function(self, button)
+	if button == "LeftButton" then
+		chatbox:StartSizing()
+	end
+end)
 
 local nameBar = CreateFrame("Frame", nil, chatbox)
 nameBar:SetPoint("TOPLEFT")
@@ -51,6 +69,16 @@ nameBar:SetPoint("TOPRIGHT")
 nameBar:SetHeight(16)
 nameBar:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", tile = true, tileSize = 16})
 nameBar:SetBackdropColor(0, 0, 0, 0.4)
+nameBar:EnableMouse(true)
+nameBar:SetScript("OnMouseDown", function(self, button)
+	if button == "LeftButton" and IsAltKeyDown() then
+		chatbox:StartMoving()
+	end
+end)
+nameBar:SetScript("OnMouseUp", function(self, button)
+	chatbox:StopMovingOrSizing()
+end)
+
 chatbox.bar = nameBar
 
 local edit = CreateFrame("EditBox", nil, chatbox)
