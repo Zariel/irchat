@@ -29,120 +29,173 @@ addon:RegisterEvent("CHAT_MSG_WHISPER_INFORM")
 -- For memory sake use 1 frame to display the messages and just change the
 -- text displayed
 
--- @TODO: Take these out of scope
-local chatbox = CreateFrame("ScrollingMessageFrame", nil, UIParent)
-chatbox:SetFont(STANDARD_TEXT_FONT, 12)
-chatbox:SetShadowColor(0, 0, 0, 1)
-chatbox:SetShadowOffset(1, -1)
-chatbox:SetWidth(350)
-chatbox:SetHeight(250)
-chatbox:SetPoint("CENTER")
-chatbox:SetJustifyH("LEFT")
-chatbox:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", tile = true, tileSize = 16})
-chatbox:SetBackdropColor(0, 0, 0, 0.45)
-chatbox:SetFading(false)
-chatbox.currentwin = 1
-chatbox.prevwin = nil
-chatbox.cache = {}
-chatbox:SetResizable(true)
-chatbox:SetMovable(true)
+local chatbox
+do
+	chatbox = CreateFrame("ScrollingMessageFrame", nil, UIParent)
+	chatbox:SetFont(STANDARD_TEXT_FONT, 12)
+	chatbox:SetShadowColor(0, 0, 0, 1)
+	chatbox:SetShadowOffset(1, -1)
+	chatbox:SetWidth(350)
+	chatbox:SetHeight(250)
+	chatbox:SetPoint("CENTER")
+	chatbox:SetJustifyH("LEFT")
+	chatbox:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", tile = true, tileSize = 16})
+	chatbox:SetBackdropColor(0, 0, 0, 0.45)
+	chatbox:SetFading(false)
+	chatbox:SetResizable(true)
+	chatbox:SetMovable(true)
+	chatbox.currentwin = 1
+	chatbox.prevwin = nil
+	chatbox.cache = {}
+	chatbox.windows = {}
 
-local scale = CreateFrame("Button", nil, chatbox)
-scale:SetNormalTexture([[Interface\AddOns\IRchat\texture\rescale.tga]])
-scale:SetPoint("BOTTOMRIGHT", -1, -1)
-scale:SetHeight(16)
-scale:SetWidth(16)
-scale:EnableMouse()
-scale:SetAlpha(0.4)
-scale:SetScript("OnMouseUp", function(self)
-	chatbox:StopMovingOrSizing()
-end)
-scale:SetScript("OnMouseDown", function(self, button)
-	if button == "LeftButton" then
-		chatbox:StartSizing()
+	--Copied from oChat by Haste
+	local scroll = function(self, dir)
+		if(dir > 0) then
+			if(IsShiftKeyDown()) then
+				self:ScrollToTop()
+			else
+				self:ScrollUp()
+			end
+		elseif(dir < 0) then
+			if(IsShiftKeyDown()) then
+				self:ScrollToBottom()
+			else
+				self:ScrollDown()
+			end
+		end
 	end
-end)
 
-local nameBar = CreateFrame("Frame", nil, chatbox)
-nameBar:SetPoint("TOPLEFT")
-nameBar:SetPoint("TOPRIGHT")
-nameBar:SetHeight(16)
-nameBar:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", tile = true, tileSize = 16})
-nameBar:SetBackdropColor(0, 0, 0, 0.4)
-nameBar:EnableMouse(true)
-nameBar:SetScript("OnMouseDown", function(self, button)
-	if button == "LeftButton" and IsAltKeyDown() then
-		chatbox:StartMoving()
-	end
-end)
-nameBar:SetScript("OnMouseUp", function(self, button)
-	chatbox:StopMovingOrSizing()
-end)
+	chatbox:SetScript("OnMouseWheel", scroll)
 
-chatbox.bar = nameBar
+	local scale = CreateFrame("Button", nil, chatbox)
+	scale:SetNormalTexture([[Interface\AddOns\IRchat\texture\rescale.tga]])
+	scale:SetPoint("BOTTOMRIGHT", -1, -1)
+	scale:SetHeight(16)
+	scale:SetWidth(16)
+	scale:EnableMouse()
+	scale:SetAlpha(0.4)
+	scale:SetScript("OnMouseUp", function(self)
+		chatbox:StopMovingOrSizing()
+	end)
 
-local edit = CreateFrame("EditBox", nil, chatbox)
-edit:SetFont(STANDARD_TEXT_FONT, 12)
-edit:SetShadowColor(0, 0, 0, 1)
-edit:SetShadowOffset(1, -1)
-edit:SetPoint("TOPLEFT", chatbox, "BOTTOMLEFT", 0, -1)
-edit:SetPoint("TOPRIGHT", chatbox, "TOPRIGHT", 0, -1)
-edit:SetHeight(20)
-edit:EnableMouse(true)
-edit:SetAutoFocus(false)
-edit:EnableKeyboard(true)
+	scale:SetScript("OnMouseDown", function(self, button)
+		if button == "LeftButton" then
+			chatbox:StartSizing()
+		end
+	end)
 
-edit:SetScript("OnEditFocusGained", function(self)
-	local win = chatbox.windows[chatbox.currentwin]
-	if win and win.name then
-		edit.text:SetText(win.name .. "> ")
-		edit:SetTextInsets(edit.text:GetStringWidth(), 0, 0, 0)
-	end
-end)
+	chatbox.scale = scale
 
-edit:SetScript("OnEditFocusLost", function(self)
-	self:SetText("")
-	edit.text:SetText("")
-end)
+	local nameBar = CreateFrame("Frame", nil, chatbox)
+	nameBar:SetPoint("TOPLEFT")
+	nameBar:SetPoint("TOPRIGHT")
+	nameBar:SetHeight(16)
+	nameBar:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", tile = true, tileSize = 16})
+	nameBar:SetBackdropColor(0, 0, 0, 0.4)
+	nameBar:EnableMouse(true)
+	nameBar:SetScript("OnMouseDown", function(self, button)
+		if button == "LeftButton" and IsAltKeyDown() then
+			chatbox:StartMoving()
+		end
+	end)
 
-edit:SetScript("OnEscapePressed", function(self)
-	self:ClearFocus()
-end)
+	nameBar:SetScript("OnMouseUp", function(self, button)
+		chatbox:StopMovingOrSizing()
+	end)
 
-edit:SetScript("OnEnterPressed", function(self)
-	if chatbox.windows[chatbox.currentwin] then
+	chatbox.namebar = nameBar
+
+	local edit = CreateFrame("EditBox", nil, chatbox)
+	edit:SetFont(STANDARD_TEXT_FONT, 12)
+	edit:SetShadowColor(0, 0, 0, 1)
+	edit:SetShadowOffset(1, -1)
+	edit:SetPoint("TOPLEFT", chatbox, "BOTTOMLEFT", 0, -1)
+	edit:SetPoint("TOPRIGHT", chatbox, "TOPRIGHT", 0, -1)
+	edit:SetHeight(20)
+	edit:EnableMouse(true)
+	edit:SetAutoFocus(false)
+	edit:EnableKeyboard(true)
+
+	edit:SetScript("OnEditFocusGained", function(self)
 		local win = chatbox.windows[chatbox.currentwin]
-		win:SendMessage(self:GetText())
+		if win and win.name then
+			edit.text:SetText(win.name .. "> ")
+			edit:SetTextInsets(edit.text:GetStringWidth(), 0, 0, 0)
+		else
+			self:ClearFocus()
+		end
+	end)
 
+	edit:SetScript("OnEditFocusLost", function(self)
+		self:SetText("")
+		edit.text:SetText("")
+	end)
+
+	edit:SetScript("OnEscapePressed", function(self)
 		self:ClearFocus()
-	end
-end)
+	end)
 
-edit:SetAttribute("chatType", "WHISPER")
+	edit:SetScript("OnEnterPressed", function(self)
+		if chatbox.windows[chatbox.currentwin] then
+			local win = chatbox.windows[chatbox.currentwin]
+			win:SendMessage(self:GetText())
 
-local text = edit:CreateFontString(nil, "OVERLAY")
-text:SetFont(STANDARD_TEXT_FONT, 12)
-text:SetShadowColor(0, 0, 0, 1)
-text:SetShadowOffset(1, -1)
-text:SetPoint("TOPLEFT", edit, "TOPLEFT")
-text:SetPoint("BOTTOMLEFT", edit, "BOTTOMLEFT")
-text:SetTextColor(0.8, 0.8, 0.8)
-edit.text = text
+			self:ClearFocus()
+		end
+	end)
 
-chatbox.edit = edit
+	local text = edit:CreateFontString(nil, "OVERLAY")
+	text:SetFont(STANDARD_TEXT_FONT, 12)
+	text:SetShadowColor(0, 0, 0, 1)
+	text:SetShadowOffset(1, -1)
+	text:SetPoint("TOPLEFT", edit, "TOPLEFT")
+	text:SetPoint("BOTTOMLEFT", edit, "BOTTOMLEFT")
+	text:SetTextColor(0.8, 0.8, 0.8)
+	edit.text = text
+
+	chatbox.edit = edit
+end
 
 -- name <-> index
 local NameToIndex = {}
 local uuids = {}
-chatbox.windows = {}
 
 -- prototype for each new 'window'
 local proto = {}
 
+local commands = {
+	["o"] = function(w)
+		w = tonumber(w)
+		local win = chatbox.windows[w]
+		if win then
+			win:SetActiveWindow()
+		end
+	end,
+}
+
+function proto:HandleCommand(cmd, rest)
+	if commands[cmd] then
+		commands[cmd](rest)
+	end
+end
+
 function proto:SendMessage(msg)
-	if strtrim(msg) == "/wc" then
-		-- close meh
-		self:Cache()
+	-- command check
+	if string.match(msg, "^:.+$") then
+		local cmd, rest = string.match(msg, "^:(%S+)%s*(%S*)$")
+		if rest == "" then rest = nil end
+		self:HandleCommand(cmd, rest)
+		if cmd == "q" then
+			if rest then
+				local win = chatbox.windows[rest]
+				if win then
+					win:Cache()
+				end
+			else
+				self:Cache()
+			end
+		end
 		return
 	end
 
@@ -177,8 +230,8 @@ function proto:SetActiveWindow()
 		self.editcache = nil
 	end
 
-	edit.text:SetText(self.name .. "> ")
-	edit:SetTextInsets(edit.text:GetStringWidth(), 0, 0, 0)
+	chatbox.edit.text:SetText(self.name .. "> ")
+	chatbox.edit:SetTextInsets(chatbox.edit.text:GetStringWidth(), 0, 0, 0)
 
 	chatbox.currentwin = self.id
 end
@@ -217,6 +270,7 @@ function proto:ActivateCache()
 
 	local index = COUNT
 
+	-- table.remove doesnt work here.
 	chatbox.windows[index] = chatbox.cache[self.uid]
 	chatbox.cache[self.uid] = nil
 
@@ -267,7 +321,7 @@ function chatbox:NewWindow(name)
 	info.id = index
 	info.uid = UUID
 
-	local col = CreateFrame("Frame", nil, nameBar)
+	local col = CreateFrame("Frame", nil, chatbox.namebar)
 
 	if self.windows[index - 1] then
 		col:SetPoint("LEFT", self.windows[index - 1].title, "RIGHT", 1, 0)
@@ -314,7 +368,6 @@ function addon:CHAT_MSG_WHISPER(message, sender)
 
 	if uuids[sender] and chatbox.cache[uuids[sender]] then
 		id = chatbox.cache[uuids[sender]]:ActivateCache()
-		print(id)
 	elseif not id or not chatbox.windows[id] then
 		id = chatbox:NewWindow(sender)
 	end
