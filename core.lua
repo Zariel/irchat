@@ -139,8 +139,29 @@ do
 	edit:SetScript("OnEnterPressed", function(self)
 		if chatbox.windows[chatbox.currentwin] then
 			local win = chatbox.windows[chatbox.currentwin]
-			win:SendMessage(self:GetText())
 
+			local msg = self:GetText()
+			if string.match(msg, "^:.+$") then
+				local cmd, rest = string.match(msg, "^:(%S+)%s*(%S*)$")
+				if rest == "" then rest = nil end
+
+				win:HandleCommand(cmd, rest)
+
+				if cmd == "q" then
+					if rest then
+						local win = chatbox.windows[rest]
+						if win then
+							win:Cache()
+						end
+					else
+						win:Cache()
+					end
+				end
+				self:SetText("")
+				return
+			end
+
+			win:SendMessage(msg)
 			self:ClearFocus()
 		end
 	end)
@@ -181,24 +202,6 @@ function proto:HandleCommand(cmd, rest)
 end
 
 function proto:SendMessage(msg)
-	-- command check
-	if string.match(msg, "^:.+$") then
-		local cmd, rest = string.match(msg, "^:(%S+)%s*(%S*)$")
-		if rest == "" then rest = nil end
-		self:HandleCommand(cmd, rest)
-		if cmd == "q" then
-			if rest then
-				local win = chatbox.windows[rest]
-				if win then
-					win:Cache()
-				end
-			else
-				self:Cache()
-			end
-		end
-		return
-	end
-
 	if self.name then
 		SendChatMessage(msg, "WHISPER", nil, self.name)
 	end
@@ -226,7 +229,7 @@ function proto:SetActiveWindow()
 	end
 
 	if self.editcache then
-		edit:SetText(self.editcache)
+		chatbox.edit:SetText(self.editcache)
 		self.editcache = nil
 	end
 
