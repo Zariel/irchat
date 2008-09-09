@@ -390,8 +390,9 @@ local ChatFilter = function(message)
 	elseif string.match(message, "No player named '%w+' is currently playing") then
 		name = message:match("No player named '(%S+)' is currently playing")
 		str = string.format("%s <System> %s does not exist", date("%X"), name)
-	elseif string.match(message, "%w+ is Away From Keyboard") then
-		name = message:match("(%S+) is Away From Keyboard")
+	elseif message == "Away from Keyboard" then
+		-- Global args D;
+		name = arg2
 		str = string.format("%s <System> %s is AFK", date("%X"), name)
 	end
 
