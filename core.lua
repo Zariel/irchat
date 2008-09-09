@@ -12,7 +12,7 @@ addon:SetScript("OnEvent", function(self, event, ...)
 end)
 addon:RegisterEvent("CHAT_MSG_WHISPER")
 addon:RegisterEvent("CHAT_MSG_WHISPER_INFORM")
-
+addon:RegisterEvent("ADDON_LOADED")
 
 addon.frames = {}
 
@@ -55,6 +55,7 @@ local nameid = setmetatable({}, {
 			if id == currentwin then
 				win:Show()
 			end
+
 			addon:UpdateBar()
 		else
 			id = addon:NewWindow(name)
@@ -72,6 +73,8 @@ local nameid = setmetatable({}, {
 	end,
 })
 
+local ClassColors = {}
+
 local GetUID
 do
 	local c = 0
@@ -84,14 +87,20 @@ end
 function addon:SpawnBase()
 	if self.window then return end
 
+	local x, y = string.match(self.db.profile.pos, "(%d+):(%d+)")
+	local h, w = string.match(self.db.profile.size, "(%d+):(%d+)")
+
 	local bg = CreateFrame("Frame", nil, UIParent)
-	bg:SetHeight(225)
-	bg:SetWidth(400)
-	bg:SetPoint("CENTER")
+	bg:SetHeight(h)
+	bg:SetWidth(w)
+	bg:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, y)
+	--bg:SetPoint("CENTER")
 	bg:SetMovable(true)
 	bg:SetResizable(true)
 	bg:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", tile = true, tileSize = 16})
 	bg:SetBackdropColor(0, 0, 0, 0.7)
+	bg:SetClampedToScreen(true)
+	bg:SetMinResize(100, 50)
 
 	local bar = CreateFrame("Frame", nil, bg)
 	bar:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", tile = true, tileSize = 16})
@@ -103,12 +112,15 @@ function addon:SpawnBase()
 
 	bar:SetScript("OnMouseDown", function(self, button)
 		if button == "LeftButton" and IsAltKeyDown() then
+			bg:ClearAllPoints()
 			bg:StartMoving()
 		end
 	end)
 
 	bar:SetScript("OnMouseUp", function(self, button)
 		bg:StopMovingOrSizing()
+		local x, y = math.floor(bg:GetLeft()), math.floor(bg:GetTop())
+		addon.db.profile.pos = x .. ":" .. y
 	end)
 
 	local scale = CreateFrame("Button", nil, bg)
@@ -122,6 +134,8 @@ function addon:SpawnBase()
 	-- @TODO Add saving of scale and position
 	scale:SetScript("OnMouseUp", function(self)
 		bg:StopMovingOrSizing()
+		local h, w = math.floor(bg:GetHeight()), math.floor(bg:GetWidth())
+		addon.db.profile.size = h .. ":" .. w
 	end)
 
 	scale:SetScript("OnMouseDown", function(self, button)
@@ -134,8 +148,8 @@ function addon:SpawnBase()
 	edit:SetFont(STANDARD_TEXT_FONT, 12)
 	edit:SetShadowColor(0, 0, 0, 1)
 	edit:SetShadowOffset(1, -1)
-	edit:SetPoint("TOPLEFT", bg, "BOTTOMLEFT", 0, -1)
-	edit:SetPoint("TOPRIGHT", bg, "TOPRIGHT", 0, -1)
+	edit:SetPoint("TOPLEFT", bg, "BOTTOMLEFT")
+	edit:SetPoint("TOPRIGHT", bg, "TOPRIGHT")
 	edit:SetHeight(16)
 	edit:EnableMouse(true)
 	edit:SetAutoFocus(false)
@@ -423,3 +437,15 @@ end
 
 ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", ChatFilter)
 ChatFrame_AddMessageEventFilter("CHAT_MSG_AFK", ChatFilter)
+
+function addon:ADDON_LOADED(event, addon)
+	if addon == "IRchat" then
+		local defaults = {
+			profile = {
+				pos = "0:0",
+				size = "225:400",
+			}
+		}
+		self.db = LibStub("AceDB-3.0"):New("IRchatDB", defaults)
+	end
+end
