@@ -1,6 +1,7 @@
 ## Interface: 20400
 ## SavedVariables: IRchatDB
 
+lib\LibStub\LibStub.lua
 lib\AceDB-3.0\AceDB-3.0.lua
 
 core.lua
