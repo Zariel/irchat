@@ -8,7 +8,7 @@ end
 
 local addon = CreateFrame("Frame")
 addon:SetScript("OnEvent", function(self, event, ...)
-	return self[event](self, ...)
+	return self[event](self, event, ...)
 end)
 addon:RegisterEvent("CHAT_MSG_WHISPER")
 addon:RegisterEvent("CHAT_MSG_WHISPER_INFORM")
@@ -18,11 +18,24 @@ addon.frames = {}
 local currentwin = 1
 local windowcount = 0
 
+local playername = UnitName("player")
+
 -- name = UID
 local UIDmap = {}
 
 -- Cache, UID = Frame
 local cache = {}
+
+local colors = {
+	urgent = { 1, 0, 0, 0.9 },
+	active = { 1, 1, 1, 1 },
+	nonactive = { 1, 1, 1, 0.5 },
+	playerchat = { 1, 1, 1, 1 },
+	chat = { 1, 1, 1, 0.7 }
+}
+
+-- To stop C Stack overflows
+local registry = {}
 
 local nameid = setmetatable({}, {
 	__index = function(self, name)
@@ -152,6 +165,7 @@ function addon:SpawnBase()
 end
 
 function addon:NewWindow(name)
+	if registry[name:lower()] then return end
 	local uid = GetUID()
 
 	windowcount = windowcount + 1
@@ -195,6 +209,8 @@ function addon:NewWindow(name)
 
 	self.frames[id] = frame
 
+	registry[name:lower()] = true
+
 	UIDmap[name] = uid
 
 	self:UpdateBar()
@@ -204,13 +220,19 @@ function addon:NewWindow(name)
 	if currentwin == id then
 		self.window.header:SetText(name .. "> ")
 		self.window.edit:SetTextInsets(self.window.header:GetStringWidth(), 0, 0, 0)
-		frame:Show()
+		self:SetActiveWindow(id, true)
+	else
+		f:SetTextColor(unpack(colors.nonactive))
 	end
+
 
 	return id
 end
 
 local commands = {
+	["w"] = function(p)
+		addon:NewWindow(p)
+	end,
 }
 
 function addon:HandleCommand(cmd, rest)
@@ -227,6 +249,8 @@ function addon:CloseWindow(id)
 	local uid = win.uid
 
 	cache[uid] = table.remove(self.frames, id)
+
+	registry[win.name:lower()] = nil
 
 	nameid[win.name] = nil
 
@@ -261,12 +285,16 @@ function addon:SetActiveWindow(id, force)
 
 	if old then
 		old:Hide()
+		old.text:SetTextColor(unpack(colors.nonactive))
 	end
 
 	new:Show()
 
 	self.window.header:SetText(new.name .. "> ")
 	self.window.edit:SetTextInsets(self.window.header:GetStringWidth(), 0, 0, 0)
+
+	new.urgent = false
+	new.text:SetTextColor(unpack(colors.active))
 
 	currentwin = id
 end
@@ -293,28 +321,32 @@ function addon:UpdateBar()
 	end
 end
 
--- @TODO Merge these
--- Inc whispers
-function addon:CHAT_MSG_WHISPER(msg, from)
+function addon:HandleWhisper(event, msg, from)
 	if not self.window then
 		self:SpawnBase()
 	end
 
 	local id = nameid[from]
 	local f = self.frames[id]
-	local m = string.format("%s <%s> %s", date("%X"), from, msg)
-	f:AddMessage(m)
 
-	-- @TODO add flashing later
-end
-
-function addon:CHAT_MSG_WHISPER_INFORM(msg, from)
-	if not self.window then
-		self:SpawnBase()
+	local r, g, b, a = unpack(colors.playerchat)
+	if event == "CHAT_MSG_WHISPER" then
+		-- Urgent handling
+		if id ~= currentwin then
+			f.text:SetTextColor(unpack(colors.urgent))
+			f.urgent = true
+		end
+		r, g, b, a = unpack(colors.chat)
+	else
+		from = playername
 	end
 
-	local id = nameid[from]
-	local f = self.frames[id]
 	local m = string.format("%s <%s> %s", date("%X"), from, msg)
+
+	m = string.format("|c%02x%02x%02x%02x%s|r", a * 255, r * 255, g * 255, b * 255, m)
+
 	f:AddMessage(m)
 end
+
+addon.CHAT_MSG_WHISPER = addon.HandleWhisper
+addon.CHAT_MSG_WHISPER_INFORM = addon.HandleWhisper
