@@ -13,6 +13,7 @@ end)
 addon:RegisterEvent("CHAT_MSG_WHISPER")
 addon:RegisterEvent("CHAT_MSG_WHISPER_INFORM")
 
+
 addon.frames = {}
 
 local currentwin = 1
@@ -44,7 +45,9 @@ local nameid = setmetatable({}, {
 			-- cache return an old frame
 			windowcount = windowcount + 1
 			id = windowcount
-			addon.frames[id] = table.remove(cache, UIDmap[name])
+			addon.frames[id] = cache[UIDmap[name]]
+			cache[UIDmap[name]] = nil
+			print("Cache", name, id, cache[UIDmap[name]], addon.frames[id])
 
 			local win = addon.frames[id]
 			win.title:Show()
@@ -52,6 +55,7 @@ local nameid = setmetatable({}, {
 			if id == currentwin then
 				win:Show()
 			end
+			addon:UpdateBar()
 		else
 			id = addon:NewWindow(name)
 		end
@@ -62,7 +66,10 @@ local nameid = setmetatable({}, {
 
 		rawset(self, name, id)
 		return id
-	end
+	end,
+	__call = function(self, name)
+		return self[name]
+	end,
 })
 
 local GetUID
@@ -231,17 +238,26 @@ function addon:NewWindow(name)
 	return id
 end
 
-local commands = {
+local commands = setmetatable({
 	["w"] = function(p)
-		nameid[p] = addon:NewWindow(p)
+		nameid(p)
 	end,
 	["o"] = function(w)
 		addon:SetActiveWindow(tonumber(w))
 	end,
-}
+}, {
+	__index = function(self, key)
+		return function()
+			local win = addon.frames[currentwin]
+			if win then
+				win:AddMessage("Unknown command :" .. key)
+			end
+		end
+	end,
+})
 
 function addon:HandleCommand(cmd, rest)
-	if commands[cmd] then commands[cmd](rest) end
+	commands[cmd](rest)
 end
 
 function addon:CloseWindow(id)
@@ -305,7 +321,6 @@ function addon:SetActiveWindow(id, force)
 	new.text:SetTextColor(unpack(colors.active))
 
 	currentwin = id
-
 end
 
 function addon:UpdateBar()
@@ -317,6 +332,10 @@ function addon:UpdateBar()
 			frame.text:SetFormattedText("[%s: %s]", id, frame.name)
 			local w = frame.text:GetStringWidth()
 			frame.title:SetWidth(w)
+		end
+
+		if id ~= currentwin and not frame.urgent then
+			frame.text:SetTextColor(unpack(colors.nonactive))
 		end
 
 		frame.title:ClearAllPoints()
@@ -359,3 +378,35 @@ end
 
 addon.CHAT_MSG_WHISPER = addon.HandleWhisper
 addon.CHAT_MSG_WHISPER_INFORM = addon.HandleWhisper
+
+local ChatFilter = function(message)
+	local name, str
+	if string.match(message, "%w+ has gone offline.") then
+		name = message:match("(%S+) has gone offline")
+		str = string.format("%s <System> %s has gone offline", date("%X"), name)
+	elseif string.match(message, "%w+ has come online.") then
+		name = message:match("(%S+) has come online")
+		str = string.format("%s <System> %s has come online", date("%X"), name)
+	elseif string.match(message, "No player named '%w+' is currently playing") then
+		name = message:match("No player named '(%S+)' is currently playing")
+		str = string.format("%s <System> %s does not exist", date("%X"), name)
+	elseif string.match(message, "%w+ is Away From Keyboard") then
+		name = message:match("(%S+) is Away From Keyboard")
+		str = string.format("%s <System> %s is AFK", date("%X"), name)
+	end
+
+	if str then
+		if registry[name:lower()] then  -- we have a window with this person
+			local f = addon.frames[nameid[name]]
+			if f then
+				f:AddMessage(str)
+				return true
+			end
+		end
+	end
+
+	return false
+end
+
+ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", ChatFilter)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_AFK", ChatFilter)
