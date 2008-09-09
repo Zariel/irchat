@@ -193,6 +193,12 @@ function addon:SpawnBase()
 	header:SetPoint("BOTTOMLEFT", 1, 0)
 	header:SetText("")
 
+	local hijack = CreateFrame("Frame", nil, UIParent)
+	hijack:EnableKeyboard(true)
+	hijack:SetScript("OnKeyDown", function(self, key)
+	end)
+	hijack:Hide()
+
 	bg.bar = bar
 	bg.scale = scale
 	bg.edit = edit
@@ -356,6 +362,7 @@ function addon:UpdateBar()
 		if id ~= frame.id then
 			-- some frame before got closed
 			frame.id = id
+			nameid[frame.name] = id
 			frame.text:SetFormattedText("[%s: %s]", id, frame.name)
 			local w = frame.text:GetStringWidth()
 			frame.title:SetWidth(w)
@@ -405,6 +412,8 @@ function addon:HandleWhisper(event, msg, from)
 	end
 
 	m = string.format("|c%02x%02x%02x%02x%s|r", a * 255, r * 255, g * 255, b * 255, m)
+
+	print(id, f.id, f.name, from)
 
 	f:AddMessage(m)
 end
