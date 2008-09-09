@@ -139,7 +139,7 @@ function addon:SpawnBase()
 	end)
 
 	scale:SetScript("OnMouseDown", function(self, button)
-		if button == "LeftButton" then
+		if button == "LeftButton" and IsAltKeyDown() then
 			bg:StartSizing()
 		end
 	end)
