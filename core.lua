@@ -48,7 +48,6 @@ local nameid = setmetatable({}, {
 			id = windowcount
 			addon.frames[id] = cache[UIDmap[name]]
 			cache[UIDmap[name]] = nil
-			print("Cache", name, id, cache[UIDmap[name]], addon.frames[id])
 
 			local win = addon.frames[id]
 			win.title:Show()
