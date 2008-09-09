@@ -89,6 +89,7 @@ function addon:SpawnBase()
 	bg:SetWidth(400)
 	bg:SetPoint("CENTER")
 	bg:SetMovable(true)
+	bg:SetResizable(true)
 	bg:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", tile = true, tileSize = 16})
 	bg:SetBackdropColor(0, 0, 0, 0.7)
 
@@ -98,6 +99,17 @@ function addon:SpawnBase()
 	bar:SetPoint("TOPRIGHT")
 	bar:SetHeight(20)
 	bar:SetBackdropColor(0, 0, 0, 0.4)
+	bar:EnableMouse(true)
+
+	bar:SetScript("OnMouseDown", function(self, button)
+		if button == "LeftButton" and IsAltKeyDown() then
+			bg:StartMoving()
+		end
+	end)
+
+	bar:SetScript("OnMouseUp", function(self, button)
+		bg:StopMovingOrSizing()
+	end)
 
 	local scale = CreateFrame("Button", nil, bg)
 	scale:SetNormalTexture([[Interface\AddOns\IRchat\texture\rescale.tga]])
