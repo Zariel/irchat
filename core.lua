@@ -6,6 +6,7 @@ local print = function(...)
 	ChatFrame1:AddMessage(str)
 end
 
+local teknicolor = teknicolor
 local addon = CreateFrame("Frame")
 addon:SetScript("OnEvent", function(self, event, ...)
 	return self[event](self, event, ...)
@@ -395,7 +396,13 @@ function addon:HandleWhisper(event, msg, from)
 		from = playername
 	end
 
-	local m = string.format("%s <%s> %s", date("%X"), from, msg)
+	local m
+	if teknicolor then
+		local str = teknicolor.nametable[from]:gsub("%[", ""):gsub("%]", "")
+		m = string.format("%s <%s> %s", date("%X"), str, msg)
+	else
+		m = string.format("%s <%s> %s", date("%X"), from, msg)
+	end
 
 	m = string.format("|c%02x%02x%02x%02x%s|r", a * 255, r * 255, g * 255, b * 255, m)
 
@@ -447,5 +454,7 @@ function addon:ADDON_LOADED(event, addon)
 			}
 		}
 		self.db = LibStub("AceDB-3.0"):New("IRchatDB", defaults)
+		self:UnregisterEvent(event)
+		teknicolor = teknicolor or getfenv(0).teknicolor
 	end
 end
