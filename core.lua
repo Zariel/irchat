@@ -56,8 +56,8 @@ local nameid = setmetatable({}, {
 			id = addon:NewWindow(name)
 		end
 
-		if not self.window:IsShown() then
-			self.window:Show()
+		if not addon.window:IsShown() then
+			addon.window:Show()
 		end
 
 		rawset(self, name, id)
@@ -234,7 +234,7 @@ end
 
 local commands = {
 	["w"] = function(p)
-		addon:NewWindow(p)
+		nameid[p] = addon:NewWindow(p)
 	end,
 }
 
