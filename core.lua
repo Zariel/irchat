@@ -1,14 +1,3 @@
---[[
-	I want a chatbox which only holds whispers, which is tabbed like irssi and has its
-	own editbox which automatically replies to the chat your reading, ala irssi.
-
-	- Use 1 editbox and cache what gets typed so we can add it in again when we change
-	who we message
-
-	- a bar somewhere which is clickable like
-	[ 1: Person ][ 2: Horse ][ 3:SadPanda ]
-	and have some sort of notification support for it.
-]]
 local print = function(...)
 	local str = ""
 	for i = 1, select("#", ...) do
@@ -17,411 +6,315 @@ local print = function(...)
 	ChatFrame1:AddMessage(str)
 end
 
-local PLAYER = UnitName("player")
-local COUNT = 0
-
-local addon = CreateFrame("Frame", nil, UIParent)
-
-addon:SetScript("OnEvent", function(self, event, ...) return self[event](self, ...) end)
+local addon = CreateFrame("Frame")
+addon:SetScript("OnEvent", function(self, event, ...)
+	return self[event](self, ...)
+end)
 addon:RegisterEvent("CHAT_MSG_WHISPER")
 addon:RegisterEvent("CHAT_MSG_WHISPER_INFORM")
 
--- For memory sake use 1 frame to display the messages and just change the
--- text displayed
+addon.frames = {}
 
-local chatbox
-do
-	chatbox = CreateFrame("ScrollingMessageFrame", nil, UIParent)
-	chatbox:SetFont(STANDARD_TEXT_FONT, 12)
-	chatbox:SetShadowColor(0, 0, 0, 1)
-	chatbox:SetShadowOffset(1, -1)
-	chatbox:SetWidth(350)
-	chatbox:SetHeight(250)
-	chatbox:SetPoint("CENTER")
-	chatbox:SetJustifyH("LEFT")
-	chatbox:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", tile = true, tileSize = 16})
-	chatbox:SetBackdropColor(0, 0, 0, 0.45)
-	chatbox:SetFading(false)
-	chatbox:SetResizable(true)
-	chatbox:EnableMouseWheel(true)
-	chatbox:SetMovable(true)
-	chatbox.currentwin = 1
-	chatbox.prevwin = nil
-	chatbox.cache = {}
-	chatbox.windows = {}
+local currentwin = 1
+local windowcount = 0
 
-	--Copied from oChat by Haste
-	local scroll = function(self, dir)
-		if(dir > 0) then
-			if(IsShiftKeyDown()) then
-				self:ScrollToTop()
-			else
-				self:ScrollUp()
+-- name = UID
+local UIDmap = {}
+
+-- Cache, UID = Frame
+local cache = {}
+
+local nameid = setmetatable({}, {
+	__index = function(self, name)
+		local id
+		if UIDmap[name] and cache[UIDmap[name]] then
+			-- cache return an old frame
+			windowcount = windowcount + 1
+			id = windowcount
+			addon.frames[id] = table.remove(cache, UIDmap[name])
+
+			local win = addon.frames[id]
+			win.title:Show()
+
+			if id == currentwin then
+				win:Show()
 			end
-		elseif(dir < 0) then
-			if(IsShiftKeyDown()) then
-				self:ScrollToBottom()
-			else
-				self:ScrollDown()
-			end
+		else
+			id = addon:NewWindow(name)
 		end
+
+		rawset(self, name, id)
+		return id
 	end
+})
 
-	chatbox:SetScript("OnMouseWheel", scroll)
+local GetUID
+do
+	local c = 0
+	GetUID = function()
+		c = c + 1
+		return c
+	end
+end
 
-	local scale = CreateFrame("Button", nil, chatbox)
+function addon:SpawnBase()
+	if self.window then return end
+
+	local bg = CreateFrame("Frame", nil, UIParent)
+	bg:SetHeight(225)
+	bg:SetWidth(400)
+	bg:SetPoint("CENTER")
+	bg:SetMovable(true)
+	bg:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", tile = true, tileSize = 16})
+	bg:SetBackdropColor(0, 0, 0, 0.7)
+
+	local bar = CreateFrame("Frame", nil, bg)
+	bar:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", tile = true, tileSize = 16})
+	bar:SetPoint("TOPLEFT")
+	bar:SetPoint("TOPRIGHT")
+	bar:SetHeight(20)
+	bar:SetBackdropColor(0, 0, 0, 0.4)
+
+	local scale = CreateFrame("Button", nil, bg)
 	scale:SetNormalTexture([[Interface\AddOns\IRchat\texture\rescale.tga]])
 	scale:SetPoint("BOTTOMRIGHT", -1, -1)
 	scale:SetHeight(16)
 	scale:SetWidth(16)
 	scale:EnableMouse()
 	scale:SetAlpha(0.4)
+
+	-- @TODO Add saving of scale and position
 	scale:SetScript("OnMouseUp", function(self)
-		chatbox:StopMovingOrSizing()
+		bg:StopMovingOrSizing()
 	end)
 
 	scale:SetScript("OnMouseDown", function(self, button)
 		if button == "LeftButton" then
-			chatbox:StartSizing()
+			bg:StartSizing()
 		end
 	end)
 
-	chatbox.scale = scale
-
-	local nameBar = CreateFrame("Frame", nil, chatbox)
-	nameBar:SetPoint("TOPLEFT")
-	nameBar:SetPoint("TOPRIGHT")
-	nameBar:SetHeight(16)
-	nameBar:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", tile = true, tileSize = 16})
-	nameBar:SetBackdropColor(0, 0, 0, 0.4)
-	nameBar:EnableMouse(true)
-	nameBar:SetScript("OnMouseDown", function(self, button)
-		if button == "LeftButton" and IsAltKeyDown() then
-			chatbox:StartMoving()
-		end
-	end)
-
-	nameBar:SetScript("OnMouseUp", function(self, button)
-		chatbox:StopMovingOrSizing()
-	end)
-
-	chatbox.namebar = nameBar
-
-	local edit = CreateFrame("EditBox", nil, chatbox)
+	local edit = CreateFrame("EditBox", nil, bg)
 	edit:SetFont(STANDARD_TEXT_FONT, 12)
 	edit:SetShadowColor(0, 0, 0, 1)
 	edit:SetShadowOffset(1, -1)
-	edit:SetPoint("TOPLEFT", chatbox, "BOTTOMLEFT", 0, -1)
-	edit:SetPoint("TOPRIGHT", chatbox, "TOPRIGHT", 0, -1)
-	edit:SetHeight(20)
+	edit:SetPoint("TOPLEFT", bg, "BOTTOMLEFT", 0, -1)
+	edit:SetPoint("TOPRIGHT", bg, "TOPRIGHT", 0, -1)
+	edit:SetHeight(16)
 	edit:EnableMouse(true)
 	edit:SetAutoFocus(false)
 	edit:EnableKeyboard(true)
-
-	edit:SetScript("OnEditFocusGained", function(self)
-		local win = chatbox.windows[chatbox.currentwin]
-		if win and win.name then
-			edit.text:SetText(win.name .. "> ")
-			edit:SetTextInsets(edit.text:GetStringWidth(), 0, 0, 0)
-		else
-			self:ClearFocus()
-		end
-	end)
-
-	edit:SetScript("OnEditFocusLost", function(self)
-		self:SetText("")
-		edit.text:SetText("")
-	end)
+	edit:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", tile = true, tileSize = 16})
+	edit:SetBackdropColor(0, 0, 0, 0.7)
 
 	edit:SetScript("OnEscapePressed", function(self)
 		self:ClearFocus()
 	end)
 
 	edit:SetScript("OnEnterPressed", function(self)
-		if chatbox.windows[chatbox.currentwin] then
-			local win = chatbox.windows[chatbox.currentwin]
-
+		local win = addon.frames[currentwin]
+		if win and win.name then
 			local msg = self:GetText()
-			if string.match(msg, "^:.+$") then
+			-- is it a command?
+			-- @TODO Add commands, use VIM commands or slash
+			-- commands? /wc vs :q :o 2 D;
+			if string.match(msg, "^:") then
 				local cmd, rest = string.match(msg, "^:(%S+)%s*(%S*)$")
-				if rest == "" then rest = nil end
-
-				win:HandleCommand(cmd, rest)
-
 				if cmd == "q" then
-					if rest then
-						local win = chatbox.windows[rest]
-						if win then
-							win:Cache()
-						end
-					else
-						win:Cache()
-					end
+					-- close window
+					addon:CloseWindow(win.id)
+				else
+					addon:HandleCommand(cmd, rest)
 				end
-				self:SetText("")
-				return
+			else
+				-- send the whisper
+				SendChatMessage(msg, "WHISPER", nil, win.name)
 			end
+		end
+		self:ClearFocus()
+		self:SetText("")
+	end)
 
-			win:SendMessage(msg)
-			self:ClearFocus()
+	local header = edit:CreateFontString(nil, "OVERLAY")
+	header:SetFont(STANDARD_TEXT_FONT, 12)
+	header:SetShadowColor(0, 0, 0, 1)
+	header:SetShadowOffset(1, -1)
+	header:SetPoint("TOPLEFT", 1, 0)
+	header:SetPoint("BOTTOMLEFT", 1, 0)
+	header:SetText("")
+
+	bg.bar = bar
+	bg.scale = scale
+	bg.edit = edit
+	bg.header = header
+
+	self.window = bg
+end
+
+function addon:NewWindow(name)
+	local uid = GetUID()
+
+	windowcount = windowcount + 1
+	local id = windowcount
+
+	local frame = CreateFrame("ScrollingMessageFrame", nil, self.window)
+	frame:SetFont(STANDARD_TEXT_FONT, 12)
+	frame:SetShadowColor(0, 0, 0, 1)
+	frame:SetShadowOffset(1, -1)
+	frame:SetFading(false)
+	frame:SetAllPoints(addon.window)
+	frame:SetJustifyH("LEFT")
+
+	local title = CreateFrame("Frame", nil, self.window.bar)
+	title:SetHeight(20)
+	title:EnableMouse()
+
+	title:SetScript("OnMouseUp", function(self, button)
+		if button == "LeftButton" then
+			addon:SetActiveWindow(frame.id)
 		end
 	end)
 
-	local text = edit:CreateFontString(nil, "OVERLAY")
-	text:SetFont(STANDARD_TEXT_FONT, 12)
-	text:SetShadowColor(0, 0, 0, 1)
-	text:SetShadowOffset(1, -1)
-	text:SetPoint("TOPLEFT", edit, "TOPLEFT")
-	text:SetPoint("BOTTOMLEFT", edit, "BOTTOMLEFT")
-	text:SetTextColor(0.8, 0.8, 0.8)
-	edit.text = text
+	local f = title:CreateFontString(nil, "OVERLAY")
+	f:SetFont(STANDARD_TEXT_FONT, 12)
+	f:SetShadowColor(0, 0, 0, 1)
+	f:SetShadowOffset(1, -1)
+	f:SetFormattedText("[%s: %s]", id, name)
 
-	chatbox.edit = edit
+	local w = f:GetStringWidth()
+	title:SetWidth(w)
+
+	f:SetAllPoints(title)
+
+	frame.name = name
+	frame.id = name
+	frame.uid = uid
+
+	frame.title = title
+	frame.text = f
+
+	self.frames[id] = frame
+
+	UIDmap[name] = uid
+
+	self:UpdateBar()
+
+	frame:Hide()
+
+	if currentwin == id then
+		self.window.header:SetText(name .. "> ")
+		self.window.edit:SetTextInsets(self.window.header:GetStringWidth(), 0, 0, 0)
+		frame:Show()
+	end
+
+	return id
 end
-
--- name <-> index
-local NameToIndex = {}
-local uuids = {}
-
--- prototype for each new 'window'
-local proto = {}
 
 local commands = {
-	["o"] = function(w)
-		w = tonumber(w)
-		local win = chatbox.windows[w]
-		if win then
-			win:SetActiveWindow()
-		end
-	end,
 }
 
-function proto:HandleCommand(cmd, rest)
-	if commands[cmd] then
-		commands[cmd](rest)
-	end
+function addon:HandleCommand(cmd, rest)
+	if commands[cmd] then commands[cmd](rest) end
 end
 
-function proto:SendMessage(msg)
-	if self.name then
-		SendChatMessage(msg, "WHISPER", nil, self.name)
-	end
-end
+function addon:CloseWindow(id)
+	-- Hide the frame and drop it in the cache
+	windowcount = windowcount - 1
+	local win = self.frames[id]
+	win:Hide()
+	win.title:Hide()
 
-function proto:SetActiveWindow()
-	if chatbox.currentwin == self.id then return end
+	local uid = win.uid
 
-	chatbox.prevwin = chatbox.currentwin
+	cache[uid] = table.remove(self.frames, id)
 
-	chatbox:Clear()
+	nameid[win.name] = nil
 
-	for time, msg in pairs(self.cache) do
-		chatbox:AddMessage(msg)
-	end
-
-	if self.urgent then
-		self.urgent = false
-	end
-
-	self.title.text:SetTextColor(1, 1, 1, 1)
-
-	if chatbox.prevwin and chatbox.edit:GetText() ~= "" then
-		chatbox.windows[chatbox.prevwin].editcache = chatbox.edit:GetText()
-	end
-
-	if self.editcache then
-		chatbox.edit:SetText(self.editcache)
-		self.editcache = nil
-	end
-
-	chatbox.edit.text:SetText(self.name .. "> ")
-	chatbox.edit:SetTextInsets(chatbox.edit.text:GetStringWidth(), 0, 0, 0)
-
-	chatbox.currentwin = self.id
-end
-
--- Caches the current window to open it again later
-function proto:Cache()
-	chatbox.cache[uuids[self.name]] = table.remove(chatbox.windows, self.id)
-	NameToIndex[self.name] = nil
-
-	self.title:ClearAllPoints()
-	self.title:Hide()
-
-	COUNT = COUNT - 1
-
-	if chatbox.currentwin == self.id then
-		local i = self.id - 1
-		while i >= 0 do
-			if chatbox.windows[i] then
+	if not self.frames[id] then
+		id = id - 1
+		while id > 0 do
+			if self.frames[id] then
 				break
 			end
-			i = i - 1
+
+			id = id - 1
 		end
-		if i > 0 then
-			chatbox.windows[i]:SetActiveWindow()
+	end
+
+	if id == 0 then return end -- Hide the whole frame
+
+	nameid[id] = self.frames[id].name
+
+	-- Set the new active window
+	self:SetActiveWindow(id, true)
+
+	self:UpdateBar()
+end
+
+function addon:SetActiveWindow(id, force)
+	if id == currentwin and not force then return end
+
+	if not self.frames[id] then return end
+
+	local old = self.frames[currentwin]
+	local new = self.frames[id]
+
+	if old then
+		old:Hide()
+	end
+
+	new:Show()
+
+	self.window.header:SetText(new.name .. "> ")
+	self.window.edit:SetTextInsets(self.window.header:GetStringWidth(), 0, 0, 0)
+
+	currentwin = id
+end
+
+function addon:UpdateBar()
+	for id = 1, (# self.frames) do
+		local frame = self.frames[id]
+		if id ~= frame.id then
+			-- some frame before got closed
+			frame.id = id
+			frame.text:SetFormattedText("[%s: %s]", id, frame.name)
+			local w = frame.text:GetStringWidth()
+			frame.title:SetWidth(w)
+		end
+
+		frame.title:ClearAllPoints()
+		frame.title:SetPoint("TOP")
+
+		if id == 1 then
+			frame.title:SetPoint("LEFT", 2, 0)
 		else
-			-- no windows
-			chatbox:Clear()
-		end
-	end
-
-	self.id = nil
-
-	chatbox:UpdatePosition()
-end
-
-function proto:ActivateCache()
-	COUNT = COUNT + 1
-
-	local index = COUNT
-
-	-- table.remove doesnt work here.
-	chatbox.windows[index] = chatbox.cache[self.uid]
-	chatbox.cache[self.uid] = nil
-
-	NameToIndex[self.name] = index
-	self.id = index
-
-	col:Show()
-
-	self.id = index
-
-	if not chatbox.currentwin or chatbox.currentwin == self.id then
-		for id, msg in pairs(self.cache) do
-			chatbox:AddMessage(msg)
-		end
-	end
-
-	chatbox:UpdatePosition()
-
-	return index
-end
-
-function chatbox:UpdatePosition()
-	for id, win in ipairs(self.windows) do
-		local col = win.title
-		col:ClearAllPoints()
-		col:SetPoint("TOP")
-
-		if chatbox.windows[id - 1] then
-			col:SetPoint("LEFT", chatbox.windows[id - 1].title, "RIGHT", 1, 0)
-		else
-			col:SetPoint("LEFT", 2, 0)
-		end
-
-		col.text:SetFormattedText("[%d: %s]", id, win.name)
-	end
-end
-
-function chatbox:NewWindow(name)
-	if self[NameToIndex[name]] then
-		-- Already got it
-		return
-	end
-
-	local UUID = time()
-
-	uuids[name] = UUID
-
-	COUNT = COUNT + 1
-	local index = COUNT
-
-	local info = setmetatable({}, {__index = proto})
-	-- Name should be the person to reply to.
-	info.name = name
-	-- To cache messages in
-	info.cache = {}
-	info.id = index
-	info.uid = UUID
-
-	local col = CreateFrame("Frame", nil, chatbox.namebar)
-
-	if self.windows[index - 1] then
-		col:SetPoint("LEFT", self.windows[index - 1].title, "RIGHT", 1, 0)
-	else
-		col:SetPoint("LEFT", 2, 0)
-	end
-
-	col:SetPoint("TOP")
-	col:EnableMouse(true)
-	col:SetScript("OnMouseUp", function(self, button)
-		if button == "LeftButton" then
-			info:SetActiveWindow()
-		end
-	end)
-
-	local t = col:CreateFontString(nil, "OVERLAY")
-	t:SetFont(STANDARD_TEXT_FONT, 12)
-	t:SetShadowColor(0, 0, 0, 1)
-	t:SetShadowOffset(1, -1)
-	t:SetPoint("TOP", nameBar, "TOP")
-	local str = string.format("[%d: %s]", index, name)
-	t:SetText(str)
-	t:SetTextColor(0.8, 0.8, 0.8)
-
-	t:SetPoint("TOPLEFT", col, "TOPLEFT")
-
-	local len = t:GetStringWidth()
-	col:SetWidth(len)
-	col:SetHeight(16)
-
-	col.text = t
-
-	info.title = col
-
-	NameToIndex[name] = index
-
-	self.windows[index] = info
-
-	return index
-end
-
-function addon:CHAT_MSG_WHISPER(message, sender)
-	local id = NameToIndex[sender]
-
-	if uuids[sender] and chatbox.cache[uuids[sender]] then
-		id = chatbox.cache[uuids[sender]]:ActivateCache()
-	elseif not id or not chatbox.windows[id] then
-		id = chatbox:NewWindow(sender)
-	end
-
-	local time, unix = date("%X"), time()
-
-	-- unix time is for saving it to a sv.
-	local msg = string.format("%s| <%s> %s", time, sender == PLAYER and "|cff00ff00" .. sender .. "|r" or sender, message)      -- oChat style
-
-	table.insert(chatbox.windows[id].cache, msg)
-
-	-- is the window currently open?
-	if chatbox.currentwin == id then
-		chatbox:AddMessage(msg)
-	else
-		if not chatbox.windows[id].urgent then
-			chatbox.windows[id].title.text:SetTextColor(1, 0, 0)
-			chatbox.windows[id].urgent = true
+			frame.title:SetPoint("LEFT", self.frames[id - 1].title, "RIGHT", 2, 0)
 		end
 	end
 end
 
-function addon:CHAT_MSG_WHISPER_INFORM(message, sender)
-	local id = NameToIndex[sender]
-
-	if uuids[sender] and chatbox.cache[uuids[sender]] then
-		id = chatbox.cache[uuids[sender]]:ActivateCache()
-	elseif not id or not chatbox.windows[id] then
-		id = chatbox:NewWindow(sender)
+-- @TODO Merge these
+-- Inc whispers
+function addon:CHAT_MSG_WHISPER(msg, from)
+	if not self.window then
+		self:SpawnBase()
 	end
 
-	local time, unix = date("%X"), time()
+	local id = nameid[from]
+	local f = self.frames[id]
+	local m = string.format("%s <%s> %s", date("%X"), from, msg)
+	f:AddMessage(m)
 
-	-- unix time is for saving it to a sv.
-	local msg = string.format("%s| <%s> %s", time, "|cff00ff00" .. PLAYER .. "|r", message)      -- oChat style
+	-- @TODO add flashing later
+end
 
-	table.insert(chatbox.windows[id].cache, msg)
-
-	-- is the window currently open?
-	if chatbox.currentwin == id then
-		chatbox:AddMessage(msg)
+function addon:CHAT_MSG_WHISPER_INFORM(msg, from)
+	if not self.window then
+		self:SpawnBase()
 	end
+
+	local id = nameid[from]
+	local f = self.frames[id]
+	local m = string.format("%s <%s> %s", date("%X"), from, msg)
+	f:AddMessage(m)
 end
