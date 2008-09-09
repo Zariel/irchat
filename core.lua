@@ -31,7 +31,7 @@ local colors = {
 	active = { 1, 1, 1, 1 },
 	nonactive = { 1, 1, 1, 0.5 },
 	playerchat = { 1, 1, 1, 1 },
-	chat = { 1, 1, 1, 0.7 }
+	chat = { 0.7, 0.7, 0.7, 1 }
 }
 
 -- To stop C Stack overflows
@@ -148,7 +148,6 @@ function addon:SpawnBase()
 				SendChatMessage(msg, "WHISPER", nil, win.name)
 			end
 		end
-		self:ClearFocus()
 		self:SetText("")
 	end)
 
@@ -235,6 +234,9 @@ end
 local commands = {
 	["w"] = function(p)
 		nameid[p] = addon:NewWindow(p)
+	end,
+	["o"] = function(w)
+		addon:SetActiveWindow(tonumber(w))
 	end,
 }
 
