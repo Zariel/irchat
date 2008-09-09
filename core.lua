@@ -41,6 +41,7 @@ local registry = {}
 
 local nameid = setmetatable({}, {
 	__index = function(self, name)
+		name = name:gsub("(.)", string.upper, 1)
 		local id
 		if UIDmap[name] and cache[UIDmap[name]] then
 			-- cache return an old frame
@@ -276,7 +277,7 @@ local commands = setmetatable({
 		return function()
 			local win = addon.frames[currentwin]
 			if win then
-				win:AddMessage("Unknown command :" .. key)
+				win:AddMessage("Unknown command :" .. tostring(key))
 			end
 		end
 	end,
