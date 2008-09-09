@@ -56,6 +56,10 @@ local nameid = setmetatable({}, {
 			id = addon:NewWindow(name)
 		end
 
+		if not self.window:IsShown() then
+			self.window:Show()
+		end
+
 		rawset(self, name, id)
 		return id
 	end
@@ -225,7 +229,6 @@ function addon:NewWindow(name)
 		f:SetTextColor(unpack(colors.nonactive))
 	end
 
-
 	return id
 end
 
@@ -265,7 +268,10 @@ function addon:CloseWindow(id)
 		end
 	end
 
-	if id == 0 then return end -- Hide the whole frame
+	if id == 0 then
+		self.window:Hide()
+		return
+	end -- Hide the whole frame
 
 	nameid[id] = self.frames[id].name
 
@@ -297,6 +303,7 @@ function addon:SetActiveWindow(id, force)
 	new.text:SetTextColor(unpack(colors.active))
 
 	currentwin = id
+
 end
 
 function addon:UpdateBar()
