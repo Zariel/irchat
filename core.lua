@@ -170,12 +170,16 @@ function addon:SpawnBase()
 			-- @TODO Add commands, use VIM commands or slash
 			-- commands? /wc vs :q :o 2 D;
 			if string.match(msg, "^:") then
-				local cmd, rest = string.match(msg, "^:(%S+)%s*(%S*)$")
+				local cmd, rest = string.match(msg, "^:(%S+)%s?(.+)")
+				local args = {}
+				for str in string.gmatch(rest, "(%S+)") do
+					table.insert(args, str)
+				end
 				if cmd == "q" then
 					-- close window
 					addon:CloseWindow(win.id)
 				else
-					addon:HandleCommand(cmd, rest)
+					addon:HandleCommand(cmd, unpack(args))
 				end
 			else
 				-- send the whisper
@@ -272,12 +276,38 @@ function addon:NewWindow(name)
 end
 
 local commands = setmetatable({
-	["w"] = function(p)
-		nameid(p)
+	["w"] = function(name, message)
+		if not name then
+			return
+		end
+
+		nameid(name)
+		if message then
+			SendChatMessage(name, "WHISPER", nil, name)
+		end
 	end,
-	["o"] = function(w)
-		addon:SetActiveWindow(tonumber(w))
+	["o"] = function(id)
+		-- id comes as a string, expected number
+		id = tonumber(id)
+		if addon.frames[id] then
+			addon:SetActiveWindow(id)
+		else
+			local win = addon.frames[currentwin]
+			if win then
+				win:AddMessage("Window does not exist " .. id)
+			end
+		end
 	end,
+	-- mother config command D;
+	["set"] = function(cmd, ...)
+		local db = addon.db.profile
+		if cmd == color then
+			local what, r, g, b, a = ...
+			if db.colors[what] then
+				db.color[what] = {r, g, b, a}
+			end
+		end
+	end
 }, {
 	__index = function(self, key)
 		return function()
@@ -289,8 +319,8 @@ local commands = setmetatable({
 	end,
 })
 
-function addon:HandleCommand(cmd, rest)
-	commands[cmd](rest)
+function addon:HandleCommand(cmd, ...)
+	commands[cmd](...)
 end
 
 function addon:CloseWindow(id)
