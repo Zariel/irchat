@@ -471,8 +471,6 @@ function addon:HandleWhisper(event, msg, from)
 
 	m = string.format("|c%02x%02x%02x%02x%s|r", a * 255, r * 255, g * 255, b * 255, m)
 
-	print(id, f.id, f.name, from)
-
 	f:AddMessage(m)
 end
 
