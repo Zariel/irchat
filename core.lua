@@ -114,6 +114,7 @@ function addon:SpawnBase()
 	bg:SetClampedToScreen(true)
 	bg:SetMinResize(100, 50)
 
+
 	local bar = CreateFrame("Frame", nil, bg)
 	bar:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", tile = true, tileSize = 16})
 	bar:SetPoint("TOPLEFT")
@@ -235,6 +236,26 @@ function addon:NewWindow(name)
 	frame:SetFading(false)
 	frame:SetAllPoints(addon.window)
 	frame:SetJustifyH("LEFT")
+	frame:EnableMouseWheel(true)
+
+	-- Copied from oChat by Haste
+	local scroll = function(self, dir)
+		if(dir > 0) then
+			if(IsShiftKeyDown()) then
+				self:ScrollToTop()
+			else
+				self:ScrollUp()
+			end
+		elseif(dir < 0) then
+			if(IsShiftKeyDown()) then
+				self:ScrollToBottom()
+			else
+				self:ScrollDown()
+			end
+		end
+	end
+
+	frame:SetScript("OnMouseWheel", scroll)
 
 	local title = CreateFrame("Frame", nil, self.window.bar)
 	title:SetHeight(20)
