@@ -1,6 +1,8 @@
 ## Interface: 20400
 ## SavedVariables: IRchatDB
 ## OptionalDeps: teknicolor
+## Version:
+## Author: Zariel
 
 lib\LibStub\LibStub.lua
 lib\AceDB-3.0\AceDB-3.0.lua
