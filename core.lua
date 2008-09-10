@@ -310,87 +310,6 @@ function addon:NewWindow(name)
 	return id
 end
 
-local commands = setmetatable({
-	["w"] = function(name, message)
-		if not name then
-			return
-		end
-
-		nameid(name)
-		if message then
-			SendChatMessage(name, "WHISPER", nil, name)
-		end
-	end,
-	["o"] = function(id)
-		-- id comes as a string, expected number
-		id = tonumber(id)
-		if addon.frames[id] then
-			addon:SetActiveWindow(id)
-		else
-			local win = addon.frames[currentwin]
-			if win then
-				win:AddMessage("Window does not exist " .. id)
-			end
-		end
-	end,
-	-- mother config command D;
-	["set"] = function(cmd, ...)
-		local db = addon.db.profile
-		if cmd == "color" then
-			local what, r, g, b, a = ...
-			if db.colors[what] then
-				db.colors[what] = { r or 1, g or 1, b or 1, a or 1 }
-
-				-- Update all colors
-				local urgent = db.colors.urgent
-				local active = db.colors.active
-				local nonactive = db.colors.nonactive
-				local chat = db.colors.chat
-				local pchat = db.colors.playerchat
-
-				-- fun fun
-				for id, frame in pairs(addon.frames) do
-					if frame.urget then
-						frame.text:SetTextColor(unpack(urgent))
-					elseif id == currentwin then
-						frame.text:SetTextColor(unpack(active))
-					else
-						frame.text:SetTextColor(unpack(nonactive))
-					end
-				end
-			end
-		end
-	end,
-	["help"] = function(cmd, ...)
-		local win = addon.frames[currentwin]
-		if not win then return end
-		if cmd == "color" then
-			local str = date("%X") .. " <system> "
-			win:AddMessage(str .. "color usage:")
-			win:AddMessage(str .. "        :set color <what> <r> <g> <b> <a>")
-			win:AddMessage(str .. "what can be:")
-			win:AddMessage(str .. "        active")
-			win:AddMessage(str .. "        nonactive")
-			win:AddMessage(str .. "        urgent")
-			win:AddMessage(str .. "        chat")
-			win:AddMessage(str .. "        playerchat")
-		end
-	end,
-}, {
-	__index = function(self, key)
-		return function()
-			local win = addon.frames[currentwin]
-			if win then
-				win:AddMessage("Unknown command :" .. tostring(key))
-			end
-		end
-	end,
-})
-
-function addon:HandleCommand(cmd, ...)
-	commands[cmd](...)
-end
-
 function addon:CloseWindow(id)
 	-- Hide the frame and drop it in the cache
 	windowcount = windowcount - 1
@@ -479,6 +398,87 @@ function addon:UpdateBar()
 			frame.title:SetPoint("LEFT", self.frames[id - 1].title, "RIGHT", 2, 0)
 		end
 	end
+end
+
+local commands = setmetatable({
+	["w"] = function(name, message)
+		if not name then
+			return
+		end
+
+		nameid(name)
+		if message then
+			SendChatMessage(name, "WHISPER", nil, name)
+		end
+	end,
+	["o"] = function(id)
+		-- id comes as a string, expected number
+		id = tonumber(id)
+		if addon.frames[id] then
+			addon:SetActiveWindow(id)
+		else
+			local win = addon.frames[currentwin]
+			if win then
+				win:AddMessage("Window does not exist " .. id)
+			end
+		end
+	end,
+	-- mother config command D;
+	["set"] = function(cmd, ...)
+		local db = addon.db.profile
+		if cmd == "color" then
+			local what, r, g, b, a = ...
+			if db.colors[what] then
+				db.colors[what] = { r or 1, g or 1, b or 1, a or 1 }
+
+				-- Update all colors
+				local urgent = db.colors.urgent
+				local active = db.colors.active
+				local nonactive = db.colors.nonactive
+				local chat = db.colors.chat
+				local pchat = db.colors.playerchat
+
+				-- fun fun
+				for id, frame in pairs(addon.frames) do
+					if frame.urget then
+						frame.text:SetTextColor(unpack(urgent))
+					elseif id == currentwin then
+						frame.text:SetTextColor(unpack(active))
+					else
+						frame.text:SetTextColor(unpack(nonactive))
+					end
+				end
+			end
+		end
+	end,
+	["help"] = function(cmd, ...)
+		local win = addon.frames[currentwin]
+		if not win then return end
+		if cmd == "color" then
+			local str = date("%X") .. " <system> "
+			win:AddMessage(str .. "color usage:")
+			win:AddMessage(str .. "        :set color <what> <r> <g> <b> <a>")
+			win:AddMessage(str .. "what can be:")
+			win:AddMessage(str .. "        active")
+			win:AddMessage(str .. "        nonactive")
+			win:AddMessage(str .. "        urgent")
+			win:AddMessage(str .. "        chat")
+			win:AddMessage(str .. "        playerchat")
+		end
+	end,
+}, {
+	__index = function(self, key)
+		return function()
+			local win = addon.frames[currentwin]
+			if win then
+				win:AddMessage("Unknown command :" .. tostring(key))
+			end
+		end
+	end,
+})
+
+function addon:HandleCommand(cmd, ...)
+	commands[cmd](...)
 end
 
 function addon:HandleWhisper(event, msg, from)
