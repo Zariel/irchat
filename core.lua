@@ -33,7 +33,7 @@ function addon:ADDON_LOADED(event, addon)
 		local defaults = {
 			profile = {
 				pos = "0:0",
-				size = "225:400",
+				size = "205:400",
 				colors = {
 					urgent = { 1, 0, 0, 0.9 },
 					active = { 1, 1, 1, 1 },
@@ -106,7 +106,6 @@ function addon:SpawnBase()
 	bg:SetHeight(h)
 	bg:SetWidth(w)
 	bg:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, y)
-	--bg:SetPoint("CENTER")
 	bg:SetMovable(true)
 	bg:SetResizable(true)
 	bg:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", tile = true, tileSize = 16})
@@ -117,10 +116,10 @@ function addon:SpawnBase()
 
 	local bar = CreateFrame("Frame", nil, bg)
 	bar:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", tile = true, tileSize = 16})
-	bar:SetPoint("TOPLEFT")
-	bar:SetPoint("TOPRIGHT")
+	bar:SetPoint("BOTTOMLEFT", bg, "TOPLEFT")
+	bar:SetPoint("BOTTOMRIGHT", bg, "TOPRIGHT")
 	bar:SetHeight(20)
-	bar:SetBackdropColor(0, 0, 0, 0.4)
+	bar:SetBackdropColor(0, 0, 0, 0.9)
 	bar:EnableMouse(true)
 
 	bar:SetScript("OnMouseDown", function(self, button)
@@ -169,6 +168,7 @@ function addon:SpawnBase()
 	edit:EnableKeyboard(true)
 	edit:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", tile = true, tileSize = 16})
 	edit:SetBackdropColor(0, 0, 0, 0.7)
+	edit:SetAltArrowKeyMode(false)
 
 	edit:SetScript("OnEscapePressed", function(self)
 		self:ClearFocus()
@@ -180,11 +180,14 @@ function addon:SpawnBase()
 			local msg = self:GetText()
 			-- is it a command?
 			if string.match(msg, "^:") then
-				local cmd, rest = string.match(msg, "^:(%S+)%s?(.+)")
+				local cmd, rest = string.match(msg, ":(%S+)%s?(.*)")
+				rest = rest or ""
 				local args = {}
+
 				for str in string.gmatch(rest, "(%S+)") do
 					table.insert(args, str)
 				end
+
 				if cmd == "q" then
 					-- close window
 					addon:CloseWindow(win.id)
@@ -237,6 +240,7 @@ function addon:NewWindow(name)
 	frame:SetAllPoints(addon.window)
 	frame:SetJustifyH("LEFT")
 	frame:EnableMouseWheel(true)
+	frame:SetMaxLines(250)
 
 	-- Copied from oChat by Haste
 	local scroll = function(self, dir)
@@ -361,14 +365,15 @@ local commands = setmetatable({
 		local win = addon.frames[currentwin]
 		if not win then return end
 		if cmd == "color" then
-			win:AddMessage("color usage:")
-			win:AddMessage("        :set color <what> <r> <g> <b> <a>")
-			win:AddMessage("what can be:")
-			win:AddMessage("        active")
-			win:AddMessage("        nonactive")
-			win:AddMessage("        urgent")
-			win:AddMessage("        chat")
-			win:AddMessage("        playerchat")
+			local str = date("%X") .. " <system> "
+			win:AddMessage(str .. "color usage:")
+			win:AddMessage(str .. "        :set color <what> <r> <g> <b> <a>")
+			win:AddMessage(str .. "what can be:")
+			win:AddMessage(str .. "        active")
+			win:AddMessage(str .. "        nonactive")
+			win:AddMessage(str .. "        urgent")
+			win:AddMessage(str .. "        chat")
+			win:AddMessage(str .. "        playerchat")
 		end
 	end,
 }, {
