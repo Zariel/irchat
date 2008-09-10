@@ -28,13 +28,26 @@ local UIDmap = {}
 -- Cache, UID = Frame
 local cache = {}
 
-local colors = {
-	urgent = { 1, 0, 0, 0.9 },
-	active = { 1, 1, 1, 1 },
-	nonactive = { 1, 1, 1, 0.5 },
-	playerchat = { 1, 1, 1, 1 },
-	chat = { 0.7, 0.7, 0.7, 1 }
-}
+function addon:ADDON_LOADED(event, addon)
+	if addon == "IRchat" then
+		local defaults = {
+			profile = {
+				pos = "0:0",
+				size = "225:400",
+				colors = {
+					urgent = { 1, 0, 0, 0.9 },
+					active = { 1, 1, 1, 1 },
+					nonactive = { 1, 1, 1, 0.5 },
+					playerchat = { 1, 1, 1, 1 },
+					chat = { 0.7, 0.7, 0.7, 1 },
+				},
+			}
+		}
+		self.db = LibStub("AceDB-3.0"):New("IRchatDB", defaults)
+		self:UnregisterEvent(event)
+		teknicolor = teknicolor or getfenv(0).teknicolor
+	end
+end
 
 -- To stop C Stack overflows
 local registry = {}
@@ -73,8 +86,6 @@ local nameid = setmetatable({}, {
 		return self[name]
 	end,
 })
-
-local ClassColors = {}
 
 local GetUID
 do
@@ -167,8 +178,6 @@ function addon:SpawnBase()
 		if win and win.name then
 			local msg = self:GetText()
 			-- is it a command?
-			-- @TODO Add commands, use VIM commands or slash
-			-- commands? /wc vs :q :o 2 D;
 			if string.match(msg, "^:") then
 				local cmd, rest = string.match(msg, "^:(%S+)%s?(.+)")
 				local args = {}
@@ -186,6 +195,7 @@ function addon:SpawnBase()
 				SendChatMessage(msg, "WHISPER", nil, win.name)
 			end
 		end
+
 		self:SetText("")
 	end)
 
@@ -269,7 +279,7 @@ function addon:NewWindow(name)
 		self.window.edit:SetTextInsets(self.window.header:GetStringWidth(), 0, 0, 0)
 		self:SetActiveWindow(id, true)
 	else
-		f:SetTextColor(unpack(colors.nonactive))
+		f:SetTextColor(unpack(self.db.profile.colors.nonactive))
 	end
 
 	return id
@@ -301,10 +311,28 @@ local commands = setmetatable({
 	-- mother config command D;
 	["set"] = function(cmd, ...)
 		local db = addon.db.profile
-		if cmd == color then
+		if cmd == "color" then
 			local what, r, g, b, a = ...
 			if db.colors[what] then
-				db.color[what] = {r, g, b, a}
+				db.colors[what] = { r or 1, g or 1, b or 1, a or 1 }
+
+				-- Update all colors
+				local urgent = db.colors.urgent
+				local active = db.colors.active
+				local nonactive = db.colors.nonactive
+				local chat = db.colors.chat
+				local pchat = db.colors.playerchat
+
+				-- fun fun
+				for id, frame in pairs(addon.frames) do
+					if frame.urget then
+						frame.text:SetTextColor(unpack(urgent))
+					elseif id == currentwin then
+						frame.text:SetTextColor(unpack(active))
+					else
+						frame.text:SetTextColor(unpack(nonactive))
+					end
+				end
 			end
 		end
 	end
@@ -372,7 +400,7 @@ function addon:SetActiveWindow(id, force)
 
 	if old then
 		old:Hide()
-		old.text:SetTextColor(unpack(colors.nonactive))
+		old.text:SetTextColor(unpack(self.db.profile.colors.nonactive))
 	end
 
 	new:Show()
@@ -381,7 +409,7 @@ function addon:SetActiveWindow(id, force)
 	self.window.edit:SetTextInsets(self.window.header:GetStringWidth(), 0, 0, 0)
 
 	new.urgent = false
-	new.text:SetTextColor(unpack(colors.active))
+	new.text:SetTextColor(unpack(self.db.profile.colors.active))
 
 	currentwin = id
 end
@@ -421,14 +449,14 @@ function addon:HandleWhisper(event, msg, from)
 	local id = nameid[from]
 	local f = self.frames[id]
 
-	local r, g, b, a = unpack(colors.playerchat)
+	local r, g, b, a = unpack(self.db.profile.colors.playerchat)
 	if event == "CHAT_MSG_WHISPER" then
 		-- Urgent handling
 		if id ~= currentwin then
-			f.text:SetTextColor(unpack(colors.urgent))
+			f.text:SetTextColor(unpack(self.db.profile.colors.urgent))
 			f.urgent = true
 		end
-		r, g, b, a = unpack(colors.chat)
+		r, g, b, a = unpack(self.db.profile.colors.chat)
 	else
 		from = playername
 	end
@@ -484,16 +512,3 @@ end
 ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", ChatFilter)
 ChatFrame_AddMessageEventFilter("CHAT_MSG_AFK", ChatFilter)
 
-function addon:ADDON_LOADED(event, addon)
-	if addon == "IRchat" then
-		local defaults = {
-			profile = {
-				pos = "0:0",
-				size = "225:400",
-			}
-		}
-		self.db = LibStub("AceDB-3.0"):New("IRchatDB", defaults)
-		self:UnregisterEvent(event)
-		teknicolor = teknicolor or getfenv(0).teknicolor
-	end
-end
