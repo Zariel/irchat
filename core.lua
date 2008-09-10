@@ -335,7 +335,21 @@ local commands = setmetatable({
 				end
 			end
 		end
-	end
+	end,
+	["help"] = function(cmd, ...)
+		local win = addon.frames[currentwin]
+		if not win then return end
+		if cmd == "color" then
+			win:AddMessage("color usage:")
+			win:AddMessage("        :set color <what> <r> <g> <b> <a>")
+			win:AddMessage("what can be:")
+			win:AddMessage("        active")
+			win:AddMessage("        nonactive")
+			win:AddMessage("        urgent")
+			win:AddMessage("        chat")
+			win:AddMessage("        playerchat")
+		end
+	end,
 }, {
 	__index = function(self, key)
 		return function()
