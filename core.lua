@@ -528,7 +528,7 @@ function addon:HandleWhisper(event, msg, from)
 	end
 
 	local m
-	if teknicolor then
+	if teknicolor and teknicolor.nametable[from] then
 		local str = teknicolor.nametable[from]:gsub("%[", ""):gsub("%]", "")
 		m = string.format("%s <%s> %s", date("%X"), str, msg)
 	else
